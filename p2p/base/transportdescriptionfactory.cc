@@ -36,6 +36,7 @@ TransportDescription* TransportDescriptionFactory::CreateOffer(
   } else {
     desc->ice_ufrag = current_description->ice_ufrag;
     desc->ice_pwd = current_description->ice_pwd;
+    desc->uproxy_transform = current_description->uproxy_transform;
   }
 
   // If we are trying to establish a secure transport, add a fingerprint.
@@ -70,6 +71,7 @@ TransportDescription* TransportDescriptionFactory::CreateAnswer(
   } else {
     desc->ice_ufrag = current_description->ice_ufrag;
     desc->ice_pwd = current_description->ice_pwd;
+    desc->uproxy_transform = current_description->uproxy_transform;
   }
 
   // Negotiate security params.

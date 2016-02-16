@@ -165,6 +165,8 @@ class PortAllocatorSession : public sigslot::has_slots<> {
 
   virtual uint32_t generation() { return generation_; }
   virtual void set_generation(uint32_t generation) { generation_ = generation; }
+  virtual void set_uproxy_transform(const std::string& transform) { uproxy_transform_ = transform;}
+  const std::string& get_uproxy_transform() { return uproxy_transform_; }
   sigslot::signal1<PortAllocatorSession*> SignalDestroyed;
 
  protected:
@@ -199,6 +201,7 @@ class PortAllocatorSession : public sigslot::has_slots<> {
   int component_;
   std::string ice_ufrag_;
   std::string ice_pwd_;
+  std::string uproxy_transform_;
 
   // SetIceParameters is an implementation detail which only PortAllocator
   // should be able to call.
