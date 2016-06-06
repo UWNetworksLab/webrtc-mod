@@ -41,6 +41,7 @@ struct PacketOptions {
   DiffServCodePoint dscp;
   int packet_id;  // 16 bits, -1 represents "not set".
   PacketTimeUpdateParams packet_time_params;
+  std::string uproxy_transform;
 };
 
 // This structure will have the information about when packet is actually

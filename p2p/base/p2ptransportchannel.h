@@ -87,6 +87,7 @@ class P2PTransportChannel : public TransportChannelImpl,
   void SetIceTiebreaker(uint64_t tiebreaker) override;
   void SetIceCredentials(const std::string& ice_ufrag,
                          const std::string& ice_pwd) override;
+  void SetUproxyTransform(const std::string& transform) override;
   void SetRemoteIceCredentials(const std::string& ice_ufrag,
                                const std::string& ice_pwd) override;
   void SetRemoteIceMode(IceMode mode) override;
@@ -331,6 +332,9 @@ class P2PTransportChannel : public TransportChannelImpl,
   TransportChannelState state_ = TransportChannelState::STATE_INIT;
   IceConfig config_;
   int last_sent_packet_id_ = -1;  // -1 indicates no packet was sent before.
+
+  // uProxy hack
+  std::string uproxy_transform_;
 
   RTC_DISALLOW_COPY_AND_ASSIGN(P2PTransportChannel);
 };
