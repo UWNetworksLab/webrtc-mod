@@ -101,6 +101,7 @@ struct TransportDescription {
         ice_ufrag(from.ice_ufrag),
         ice_pwd(from.ice_pwd),
         ice_mode(from.ice_mode),
+        uproxy_transform(from.uproxy_transform),
         connection_role(from.connection_role),
         identity_fingerprint(CopyFingerprint(from.identity_fingerprint.get())),
         candidates(from.candidates) {}
@@ -115,6 +116,7 @@ struct TransportDescription {
     ice_pwd = from.ice_pwd;
     ice_mode = from.ice_mode;
     connection_role = from.connection_role;
+    uproxy_transform = from.uproxy_transform;
 
     identity_fingerprint.reset(CopyFingerprint(
         from.identity_fingerprint.get()));
@@ -143,6 +145,7 @@ struct TransportDescription {
   std::string ice_ufrag;
   std::string ice_pwd;
   IceMode ice_mode;
+  std::string uproxy_transform;
   ConnectionRole connection_role;
 
   rtc::scoped_ptr<rtc::SSLFingerprint> identity_fingerprint;

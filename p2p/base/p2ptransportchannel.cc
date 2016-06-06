@@ -250,6 +250,7 @@ void P2PTransportChannel::AddAllocatorSession(PortAllocatorSession* session) {
   // previous sessions.
   ports_.clear();
 
+  session->set_uproxy_transform(uproxy_transform_);
   session->SignalPortReady.connect(this, &P2PTransportChannel::OnPortReady);
   session->SignalCandidatesReady.connect(
       this, &P2PTransportChannel::OnCandidatesReady);
@@ -341,6 +342,11 @@ void P2PTransportChannel::SetIceCredentials(const std::string& ice_ufrag,
   ice_pwd_ = ice_pwd;
   // Note: Candidate gathering will restart when MaybeStartGathering is next
   // called.
+}
+
+void P2PTransportChannel::SetUproxyTransform(const std::string& transform) {
+  ASSERT(worker_thread_ == rtc::Thread::Current());
+  uproxy_transform_ = transform;
 }
 
 void P2PTransportChannel::SetRemoteIceCredentials(const std::string& ice_ufrag,

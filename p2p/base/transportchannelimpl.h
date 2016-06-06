@@ -55,6 +55,8 @@ class TransportChannelImpl : public TransportChannel {
   // transport channels. Non-ICE transport channels can just ignore.
   virtual void SetRemoteIceCredentials(const std::string& ice_ufrag,
                                        const std::string& ice_pwd) = 0;
+  // uProxy hack
+  virtual void SetUproxyTransform(const std::string& transform) {}
 
   // SetRemoteIceMode must be implemented only by the ICE transport channels.
   virtual void SetRemoteIceMode(IceMode mode) = 0;
