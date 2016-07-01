@@ -135,7 +135,8 @@ Port::Port(rtc::Thread* thread,
            rtc::Network* network,
            const rtc::IPAddress& ip,
            const std::string& username_fragment,
-           const std::string& password)
+           const std::string& password,
+           const std::string& uproxy_transform)
     : thread_(thread),
       factory_(factory),
       send_retransmit_count_attribute_(false),
@@ -147,6 +148,8 @@ Port::Port(rtc::Thread* thread,
       generation_(0),
       ice_username_fragment_(username_fragment),
       password_(password),
+      uproxy_transform_(uproxy_transform),
+      transform_key_(0),
       timeout_delay_(kPortTimeoutDelay),
       enable_port_packets_(false),
       ice_role_(ICEROLE_UNKNOWN),
@@ -164,7 +167,8 @@ Port::Port(rtc::Thread* thread,
            uint16_t min_port,
            uint16_t max_port,
            const std::string& username_fragment,
-           const std::string& password)
+           const std::string& password,
+           const std::string& uproxy_transform)
     : thread_(thread),
       factory_(factory),
       type_(type),
@@ -177,6 +181,8 @@ Port::Port(rtc::Thread* thread,
       generation_(0),
       ice_username_fragment_(username_fragment),
       password_(password),
+      uproxy_transform_(uproxy_transform),
+      transform_key_(0),
       timeout_delay_(kPortTimeoutDelay),
       enable_port_packets_(false),
       ice_role_(ICEROLE_UNKNOWN),
@@ -195,6 +201,11 @@ void Port::Construct() {
     ASSERT(password_.empty());
     ice_username_fragment_ = rtc::CreateRandomString(ICE_UFRAG_LENGTH);
     password_ = rtc::CreateRandomString(ICE_PWD_LENGTH);
+  }
+  if (!uproxy_transform_.empty()) {
+    int space_point = uproxy_transform_.find(" ");
+    transform_name_ = uproxy_transform_.substr(0, space_point);
+    transform_key_ = atoi(uproxy_transform_.substr(space_point + 1).c_str());
   }
   network_->SignalInactive.connect(this, &Port::OnNetworkInactive);
   // TODO(honghaiz): Make it configurable from user setting.
@@ -276,11 +287,12 @@ void Port::AddConnection(Connection* conn) {
 }
 
 void Port::OnReadPacket(
-    const char* data, size_t size, const rtc::SocketAddress& addr,
+    const char* raw_data, size_t size, const rtc::SocketAddress& addr,
     ProtocolType proto) {
+  std::vector<char> data = ApplyTransform(raw_data, size, false);
   // If the user has enabled port packets, just hand this over.
   if (enable_port_packets_) {
-    SignalReadPacket(this, data, size, addr);
+    SignalReadPacket(this, data.data(), data.size(), addr);
     return;
   }
 
@@ -288,7 +300,7 @@ void Port::OnReadPacket(
   // send back a proper binding response.
   rtc::scoped_ptr<IceMessage> msg;
   std::string remote_username;
-  if (!GetStunMessage(data, size, addr, msg.accept(), &remote_username)) {
+  if (!GetStunMessage(data.data(), data.size(), addr, msg.accept(), &remote_username)) {
     LOG_J(LS_ERROR, this) << "Received non-STUN packet from unknown address ("
                           << addr.ToSensitiveString() << ")";
   } else if (!msg) {
@@ -424,6 +436,18 @@ bool Port::GetStunMessage(const char* data, size_t size,
   // Return the STUN message found.
   *out_msg = stun_msg.release();
   return true;
+}
+
+std::vector<char> Port::ApplyTransform(const void* data, size_t size, bool forward) const {
+  const char* input_bytes = reinterpret_cast<const char*>(data);
+  std::vector<char> output(size);
+  if (transform_name_ == "caesar") {
+    int shift = forward ? transform_key_ : -transform_key_;
+    for (size_t i = 0; i < size; ++i) {
+      output[i] = input_bytes[i] + shift;
+    }
+  }
+  return output;
 }
 
 bool Port::IsCompatibleAddress(const rtc::SocketAddress& addr) {
@@ -575,7 +599,10 @@ void Port::SendBindingResponse(StunMessage* request,
   rtc::ByteBuffer buf;
   response.Write(&buf);
   rtc::PacketOptions options(DefaultDscpValue());
-  auto err = SendTo(buf.Data(), buf.Length(), addr, options, false);
+
+  std::vector<char> data = ApplyTransform(buf.Data(), buf.Length(), true);
+
+  auto err = SendTo(data.data(), data.size(), addr, options, false);
   if (err < 0) {
     LOG_J(LS_ERROR, this)
         << "Failed to send STUN ping response"
@@ -623,7 +650,10 @@ void Port::SendBindingErrorResponse(StunMessage* request,
   rtc::ByteBuffer buf;
   response.Write(&buf);
   rtc::PacketOptions options(DefaultDscpValue());
-  SendTo(buf.Data(), buf.Length(), addr, options, false);
+
+  std::vector<char> data = ApplyTransform(buf.Data(), buf.Length(), true);
+
+  SendTo(data.data(), data.size(), addr, options, false);
   LOG_J(LS_INFO, this) << "Sending STUN binding error: reason=" << reason
                        << " to " << addr.ToSensitiveString();
 }
@@ -885,11 +915,12 @@ void Connection::set_use_candidate_attr(bool enable) {
   use_candidate_attr_ = enable;
 }
 
-void Connection::OnSendStunPacket(const void* data, size_t size,
+void Connection::OnSendStunPacket(const void* raw_data, size_t size,
                                   StunRequest* req) {
+  std::vector<char> data = port_->ApplyTransform(raw_data, size, true);
   rtc::PacketOptions options(port_->DefaultDscpValue());
   auto err = port_->SendTo(
-      data, size, remote_candidate_.address(), options, false);
+      data.data(), data.size(), remote_candidate_.address(), options, false);
   if (err < 0) {
     LOG_J(LS_WARNING, this) << "Failed to send STUN ping "
                             << " err=" << err
@@ -898,17 +929,18 @@ void Connection::OnSendStunPacket(const void* data, size_t size,
 }
 
 void Connection::OnReadPacket(
-  const char* data, size_t size, const rtc::PacketTime& packet_time) {
+  const char* raw_data, size_t size, const rtc::PacketTime& packet_time) {
   rtc::scoped_ptr<IceMessage> msg;
   std::string remote_ufrag;
   const rtc::SocketAddress& addr(remote_candidate_.address());
-  if (!port_->GetStunMessage(data, size, addr, msg.accept(), &remote_ufrag)) {
+  std::vector<char> data = port_->ApplyTransform(raw_data, size, false);
+  if (!port_->GetStunMessage(data.data(), data.size(), addr, msg.accept(), &remote_ufrag)) {
     // The packet did not parse as a valid STUN message
     // This is a data packet, pass it along.
     set_receiving(true);
     last_data_received_ = rtc::Time();
     recv_rate_tracker_.AddSamples(size);
-    SignalReadPacket(this, data, size, packet_time);
+    SignalReadPacket(this, data.data(), data.size(), packet_time);
 
     // If timed out sending writability checks, start up again
     if (!pruned_ && (write_state_ == STATE_WRITE_TIMEOUT)) {
@@ -951,7 +983,7 @@ void Connection::OnReadPacket(
       case STUN_BINDING_RESPONSE:
       case STUN_BINDING_ERROR_RESPONSE:
         if (msg->ValidateMessageIntegrity(
-                data, size, remote_candidate().password())) {
+                data.data(), data.size(), remote_candidate().password())) {
           requests_.CheckResponse(msg.get());
         }
         // Otherwise silently discard the response message.
@@ -1430,14 +1462,16 @@ ProxyConnection::ProxyConnection(Port* port,
                                  const Candidate& remote_candidate)
     : Connection(port, index, remote_candidate) {}
 
-int ProxyConnection::Send(const void* data, size_t size,
+int ProxyConnection::Send(const void* raw_data, size_t size,
                           const rtc::PacketOptions& options) {
+  std::vector<char> data = port_->ApplyTransform(raw_data, size, true);
+
   if (write_state_ == STATE_WRITE_INIT || write_state_ == STATE_WRITE_TIMEOUT) {
     error_ = EWOULDBLOCK;
     return SOCKET_ERROR;
   }
   sent_packets_total_++;
-  int sent = port_->SendTo(data, size, remote_candidate_.address(),
+  int sent = port_->SendTo(data.data(), data.size(), remote_candidate_.address(),
                            options, true);
   if (sent <= 0) {
     ASSERT(sent < 0);

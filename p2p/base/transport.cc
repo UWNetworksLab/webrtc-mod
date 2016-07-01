@@ -343,6 +343,9 @@ bool Transport::ApplyLocalTransportDescription(TransportChannelImpl* ch,
                                                std::string* error_desc) {
   ch->SetIceCredentials(local_description_->ice_ufrag,
                         local_description_->ice_pwd);
+
+  // uProxy hack
+  ch->SetUproxyTransform(local_description_->uproxy_transform);
   return true;
 }
 

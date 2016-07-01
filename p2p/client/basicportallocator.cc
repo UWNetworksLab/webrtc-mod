@@ -881,13 +881,13 @@ void AllocationSequence::CreateUDPPorts() {
   if (IsFlagSet(PORTALLOCATOR_ENABLE_SHARED_SOCKET) && udp_socket_) {
     port = UDPPort::Create(
         session_->network_thread(), session_->socket_factory(), network_,
-        udp_socket_.get(), session_->username(), session_->password(),
+        udp_socket_.get(), session_->username(), session_->password(), session_->get_uproxy_transform(),
         session_->allocator()->origin(), emit_local_candidate_for_anyaddress);
   } else {
     port = UDPPort::Create(
         session_->network_thread(), session_->socket_factory(), network_, ip_,
         session_->allocator()->min_port(), session_->allocator()->max_port(),
-        session_->username(), session_->password(),
+        session_->username(), session_->password(), session_->get_uproxy_transform(),
         session_->allocator()->origin(), emit_local_candidate_for_anyaddress);
   }
 
@@ -953,7 +953,7 @@ void AllocationSequence::CreateStunPorts() {
                                 network_, ip_,
                                 session_->allocator()->min_port(),
                                 session_->allocator()->max_port(),
-                                session_->username(), session_->password(),
+                                session_->username(), session_->password(), session_->get_uproxy_transform(),
                                 config_->StunServers(),
                                 session_->allocator()->origin());
   if (port) {

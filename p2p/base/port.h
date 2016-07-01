@@ -120,7 +120,8 @@ class Port : public PortInterface, public rtc::MessageHandler,
        rtc::Network* network,
        const rtc::IPAddress& ip,
        const std::string& username_fragment,
-       const std::string& password);
+       const std::string& password,
+       const std::string&  transform);
   Port(rtc::Thread* thread,
        const std::string& type,
        rtc::PacketSocketFactory* factory,
@@ -129,7 +130,8 @@ class Port : public PortInterface, public rtc::MessageHandler,
        uint16_t min_port,
        uint16_t max_port,
        const std::string& username_fragment,
-       const std::string& password);
+       const std::string& password,
+       const std::string&  transform);
   virtual ~Port();
 
   virtual const std::string& Type() const { return type_; }
@@ -190,6 +192,8 @@ class Port : public PortInterface, public rtc::MessageHandler,
   // RTCP.
   const std::string username_fragment() const;
   const std::string& password() const { return password_; }
+
+  std::vector<char> ApplyTransform(const void* data, size_t size, bool forward) const;
 
   // Fired when candidates are discovered by the port. When all candidates
   // are discovered that belong to port SignalAddressReady is fired.
@@ -381,6 +385,9 @@ class Port : public PortInterface, public rtc::MessageHandler,
   // username_fragment().
   std::string ice_username_fragment_;
   std::string password_;
+  std::string uproxy_transform_;
+  std::string transform_name_;
+  int transform_key_;
   std::vector<Candidate> candidates_;
   AddressMap connections_;
   int timeout_delay_;
