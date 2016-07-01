@@ -1,0 +1,55 @@
+From 32487dcc0f70aea2d855aeb3c00db82a3a3876a6 Mon Sep 17 00:00:00 2001
+From: Ben Schwartz <bemasc@uproxy.org>
+Date: Fri, 17 Jun 2016 17:50:29 -0400
+Subject: [PATCH] bemasc xwalk hack: disable STUN parsing check in UDP sockets
+
+---
+ content/browser/renderer_host/p2p/socket_host_udp.cc | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/content/browser/renderer_host/p2p/socket_host_udp.cc b/content/browser/renderer_host/p2p/socket_host_udp.cc
+index 0dbfcec..ba99964 100644
+--- a/content/browser/renderer_host/p2p/socket_host_udp.cc
++++ b/content/browser/renderer_host/p2p/socket_host_udp.cc
+@@ -208,18 +208,21 @@ void P2PSocketHostUdp::HandleReadResult(int result) {
+     std::vector<char> data(recv_buffer_->data(), recv_buffer_->data() + result);
+ 
+     if (!ContainsKey(connected_peers_, recv_address_)) {
++/*
+       P2PSocketHost::StunMessageType type;
+       bool stun = GetStunPacketType(&*data.begin(), data.size(), &type);
+       if ((stun && IsRequestOrResponse(type))) {
++*/
+         connected_peers_.insert(recv_address_);
++/*
+       } else if (!stun || type == STUN_DATA_INDICATION) {
+         LOG(ERROR) << "Received unexpected data packet from "
+                    << recv_address_.ToString()
+                    << " before STUN binding is finished.";
+         return;
+       }
++*/
+     }
+-
+     message_sender_->Send(new P2PMsg_OnDataReceived(
+         id_, recv_address_, data, base::TimeTicks::Now()));
+ 
+@@ -242,6 +245,7 @@ void P2PSocketHostUdp::Send(const net::IPEndPoint& to,
+   }
+ 
+   if (!ContainsKey(connected_peers_, to)) {
++/*
+     P2PSocketHost::StunMessageType type = P2PSocketHost::StunMessageType();
+     bool stun = GetStunPacketType(&*data.begin(), data.size(), &type);
+     if (!stun || type == STUN_DATA_INDICATION) {
+@@ -250,6 +254,7 @@ void P2PSocketHostUdp::Send(const net::IPEndPoint& to,
+       OnError();
+       return;
+     }
++*/
+ 
+     if (throttler_->DropNextPacket(data.size())) {
+       VLOG(0) << "STUN message is dropped due to high volume.";
+-- 
+2.8.0.rc3.226.g39d4020
+
